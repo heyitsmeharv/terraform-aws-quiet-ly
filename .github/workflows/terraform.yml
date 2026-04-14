@@ -1,0 +1,114 @@
+name: Terraform
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment folder under infra/env/"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: "eu-west-2"
+
+jobs:
+  plan:
+    name: Validate + Plan (${{ matrix.environment }})
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Add more env folders here as you create them:
+        environment: [sandbox]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Make scripts executable
+        run: chmod +x infra/scripts/*.sh
+
+      - name: Install tflint
+        run: |
+          set -euo pipefail
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          tflint --version
+
+      - name: Validate (fmt + validate + tflint)
+        run: bash -euo pipefail infra/scripts/validate.sh ${{ matrix.environment }}
+
+      - name: Write backend.hcl
+        run: bash -euo pipefail infra/scripts/write-backend-hcl.sh ${{ matrix.environment }} --region ${{ env.AWS_REGION }}
+
+      - name: Plan
+        run: bash -euo pipefail infra/scripts/plan.sh ${{ matrix.environment }}
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.environment }}
+          path: infra/env/${{ matrix.environment }}/tfplan
+          if-no-files-found: error
+
+  apply:
+    name: Apply (${{ inputs.environment }})
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Make scripts executable
+        run: chmod +x infra/scripts/*.sh
+
+      - name: Install tflint
+        run: |
+          set -euo pipefail
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          tflint --version
+
+      - name: Validate (fmt + validate + tflint)
+        run: bash -euo pipefail infra/scripts/validate.sh ${{ inputs.environment }}
+
+      - name: Write backend.hcl
+        run: bash -euo pipefail infra/scripts/write-backend-hcl.sh ${{ inputs.environment }} --region ${{ env.AWS_REGION }}
+
+      - name: Plan
+        run: bash -euo pipefail infra/scripts/plan.sh ${{ inputs.environment }}
+
+      - name: Apply
+        run: bash -euo pipefail infra/scripts/apply.sh ${{ inputs.environment }}
