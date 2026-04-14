@@ -3,15 +3,8 @@ name: Terraform
 on:
   pull_request:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Environment folder under infra/env/"
-        required: true
-        type: string
 
 permissions:
-  id-token: write
   contents: read
   pull-requests: write
 
@@ -20,20 +13,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  AWS_REGION: "eu-west-2"
+  NODE_VERSION: "22"
 
 jobs:
-  plan:
-    name: Validate + Plan (${{ matrix.environment }})
-    if: github.event_name == 'pull_request'
+  validate-module:
+    name: Validate Module
     runs-on: ubuntu-latest
-    environment: ${{ matrix.environment }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        # Add more env folders here as you create them:
-        environment: [sandbox]
 
     steps:
       - name: Checkout
@@ -42,73 +27,39 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+      - name: fmt check
+        run: terraform fmt -check -recursive
 
-      - name: Make scripts executable
-        run: chmod +x infra/scripts/*.sh
+      - name: init
+        run: terraform init -backend=false -input=false
 
-      - name: Install tflint
-        run: |
-          set -euo pipefail
-          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
-          tflint --version
+      - name: validate
+        run: terraform validate
 
-      - name: Validate (fmt + validate + tflint)
-        run: bash -euo pipefail infra/scripts/validate.sh ${{ matrix.environment }}
-
-      - name: Write backend.hcl
-        run: bash -euo pipefail infra/scripts/write-backend-hcl.sh ${{ matrix.environment }} --region ${{ env.AWS_REGION }}
-
-      - name: Plan
-        run: bash -euo pipefail infra/scripts/plan.sh ${{ matrix.environment }}
-
-      - name: Upload plan artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan-${{ matrix.environment }}
-          path: infra/env/${{ matrix.environment }}/tfplan
-          if-no-files-found: error
-
-  apply:
-    name: Apply (${{ inputs.environment }})
-    if: github.event_name == 'workflow_dispatch'
+  ci:
+    name: Lambda
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Make scripts executable
-        run: chmod +x infra/scripts/*.sh
+      - name: Install Lambda dependencies
+        working-directory: lambda
+        run: npm install
 
-      - name: Install tflint
-        run: |
-          set -euo pipefail
-          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
-          tflint --version
+      - name: Test Lambda
+        working-directory: lambda
+        run: npm test
 
-      - name: Validate (fmt + validate + tflint)
-        run: bash -euo pipefail infra/scripts/validate.sh ${{ inputs.environment }}
+      - name: Build Lambda bundle
+        working-directory: lambda
+        run: npm run build
 
-      - name: Write backend.hcl
-        run: bash -euo pipefail infra/scripts/write-backend-hcl.sh ${{ inputs.environment }} --region ${{ env.AWS_REGION }}
-
-      - name: Plan
-        run: bash -euo pipefail infra/scripts/plan.sh ${{ inputs.environment }}
-
-      - name: Apply
-        run: bash -euo pipefail infra/scripts/apply.sh ${{ inputs.environment }}
+      - name: Verify bundle
+        run: test -f lambda/dist/index.js

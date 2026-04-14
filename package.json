@@ -1,17 +1,10 @@
 {
-  "name": "template-terraform-boilerplate",
-  "description": "Reusable Terraform boilerplate repo: a clean starter structure for modules, multi environments, and CI-ready workflow.",
-  "version": "0.0.3",
+  "name": "terraform-aws-quiet-ly",
+  "description": "A lightweight, self-hosted, privacy-first analytics module for AWS. Pairs with @quiet-ly/analytics.",
+  "version": "0.1.0",
   "author": "Adam Harvey",
   "type": "module",
   "scripts": {
-    "tf:prereqs": "bash infra/scripts/prereqs.sh",
-    "tf:whoami": "bash infra/scripts/whoami.sh",
-    "tf:bootstrap": "bash infra/scripts/bootstrap-state.sh",
-    "tf:fmt": "bash infra/scripts/fmt.sh",
-    "tf:validate": "bash infra/scripts/validate.sh",
-    "tf:plan": "bash infra/scripts/plan.sh",
-    "tf:apply": "bash infra/scripts/apply.sh",
     "prepare": "husky",
     "release": "commit-and-tag-version"
   },

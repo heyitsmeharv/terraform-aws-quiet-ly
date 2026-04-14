@@ -1,0 +1,16 @@
+{
+  "name": "quiet-ly-handler",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild index.mjs --bundle --platform=node --target=node22 --outfile=dist/index.js --format=cjs",
+    "test": "node --test index.test.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/util-dynamodb": "^3.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

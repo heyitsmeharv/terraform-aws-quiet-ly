@@ -21,3 +21,7 @@ backend.hcl
 node_modules
 package-lock.json
 **/package-lock.json
+
+# Generated Lambda artifacts
+lambda/node_modules/
+lambda/handler.zip
