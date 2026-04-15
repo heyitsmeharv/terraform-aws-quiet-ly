@@ -113,8 +113,9 @@ resource "aws_lambda_function" "handler" {
 
   environment {
     variables = {
-      TABLE_NAME   = aws_dynamodb_table.events.name
-      ENABLE_QUERY = tostring(var.enable_query_endpoint)
+      TABLE_NAME     = aws_dynamodb_table.events.name
+      ENABLE_QUERY   = tostring(var.enable_query_endpoint)
+      ALLOWED_ORIGIN = var.allowed_origin
     }
   }
 
@@ -128,14 +129,6 @@ resource "aws_lambda_function" "handler" {
 resource "aws_lambda_function_url" "handler" {
   function_name      = aws_lambda_function.handler.function_name
   authorization_type = "NONE"
-
-  cors {
-    allow_credentials = false
-    allow_origins     = [var.allowed_origin]
-    allow_methods     = ["GET", "POST"]
-    allow_headers     = ["Content-Type"]
-    max_age           = 300
-  }
 }
 
 resource "aws_lambda_permission" "public_function_url" {

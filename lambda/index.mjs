@@ -18,21 +18,31 @@ function lookupCountry(headers = {}) {
 
 export function createHandler(client = new DynamoDBClient({}), countryLookup = lookupCountry) {
   return async (event) => {
-    const TABLE_NAME   = process.env.TABLE_NAME;
-    const ENABLE_QUERY = process.env.ENABLE_QUERY === "true";
-    const method       = event.requestContext?.http?.method ?? "GET";
+    const TABLE_NAME     = process.env.TABLE_NAME;
+    const ENABLE_QUERY   = process.env.ENABLE_QUERY === "true";
+    const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "";
+    const method         = event.requestContext?.http?.method ?? "GET";
+    const corsHeaders    = buildCorsHeaders(ALLOWED_ORIGIN);
 
     try {
+      if (method === "OPTIONS") {
+        return respond(204, undefined, {
+          ...corsHeaders,
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Max-Age": "300",
+        });
+      }
       if (method === "POST") {
-        return await handleIngest(event, client, TABLE_NAME, countryLookup);
+        return await handleIngest(event, client, TABLE_NAME, countryLookup, corsHeaders);
       }
       if (method === "GET" && ENABLE_QUERY) {
-        return await handleQuery(event, client, TABLE_NAME);
+        return await handleQuery(event, client, TABLE_NAME, corsHeaders);
       }
-      return respond(404, { error: "Not found" });
+      return respond(404, { error: "Not found" }, corsHeaders);
     } catch (err) {
       console.error(err);
-      return respond(500, { error: "Internal server error" });
+      return respond(500, { error: "Internal server error" }, corsHeaders);
     }
   };
 }
@@ -41,7 +51,7 @@ export const handler = createHandler();
 
 // ─── Ingest ───────────────────────────────────────────────────────────────────
 
-async function handleIngest(event, client, TABLE_NAME, countryLookup) {
+async function handleIngest(event, client, TABLE_NAME, countryLookup, corsHeaders) {
   const body = JSON.parse(event.body ?? "{}");
   const {
     appId, type, path, referrer,
@@ -50,7 +60,7 @@ async function handleIngest(event, client, TABLE_NAME, countryLookup) {
   } = body;
 
   if (!appId || !type || !timestamp) {
-    return respond(400, { error: "Missing required fields: appId, type, timestamp" });
+    return respond(400, { error: "Missing required fields: appId, type, timestamp" }, corsHeaders);
   }
 
   const country = countryLookup(event.headers ?? {});
@@ -85,28 +95,28 @@ async function handleIngest(event, client, TABLE_NAME, countryLookup) {
     })
   );
 
-  return respond(200, { ok: true });
+  return respond(200, { ok: true }, corsHeaders);
 }
 
 // ─── Query ────────────────────────────────────────────────────────────────────
 
-async function handleQuery(event, client, TABLE_NAME) {
+async function handleQuery(event, client, TABLE_NAME, corsHeaders) {
   const qs = event.queryStringParameters ?? {};
   const { appId, from, to, type } = qs;
 
   if (!appId || !from || !to) {
-    return respond(400, { error: "Missing required params: appId, from, to" });
+    return respond(400, { error: "Missing required params: appId, from, to" }, corsHeaders);
   }
 
   const dates = getDatesInRange(from, to);
   if (dates.length > 366) {
-    return respond(400, { error: "Date range must be 366 days or fewer" });
+    return respond(400, { error: "Date range must be 366 days or fewer" }, corsHeaders);
   }
 
   const results = await Promise.all(
     dates.map((date) => queryDate({ appId, type, date, client, TABLE_NAME }))
   );
-  return respond(200, { events: results.flat() });
+  return respond(200, { events: results.flat() }, corsHeaders);
 }
 
 async function queryDate({ appId, type, date, client, TABLE_NAME }) {
@@ -157,10 +167,32 @@ function tryParseJson(str) {
   }
 }
 
-function respond(statusCode, body) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+function buildCorsHeaders(allowedOrigin) {
+  if (!allowedOrigin) return {};
+
+  const headers = {
+    "Access-Control-Allow-Origin": allowedOrigin,
   };
+
+  if (allowedOrigin !== "*") {
+    headers.Vary = "Origin";
+  }
+
+  return headers;
+}
+
+function respond(statusCode, body, extraHeaders = {}) {
+  const headers = { ...extraHeaders };
+  const response = {
+    statusCode,
+    headers,
+    body: "",
+  };
+
+  if (body !== undefined) {
+    response.headers["Content-Type"] = "application/json";
+    response.body = JSON.stringify(body);
+  }
+
+  return response;
 }

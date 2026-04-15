@@ -10,6 +10,7 @@ const mockClient = { send: mockSend };
 
 process.env.TABLE_NAME = "test-table";
 process.env.ENABLE_QUERY = "true";
+process.env.ALLOWED_ORIGIN = "https://www.example.com";
 
 const handler = createHandler(mockClient);
 
@@ -40,6 +41,7 @@ describe("POST / — ingest", () => {
     const res = await handler(event({ body: validPayload }));
     assert.equal(res.statusCode, 200);
     assert.deepEqual(JSON.parse(res.body), { ok: true });
+    assert.equal(res.headers["Access-Control-Allow-Origin"], "https://www.example.com");
     assert.equal(mockSend.mock.calls.length, 1);
   });
 
@@ -76,6 +78,7 @@ describe("GET / — query", () => {
   it("returns 200 with an events array", async () => {
     const res = await handler(event({ method: "GET", qs: { appId: "test-app", from: "2026-04-01", to: "2026-04-03" } }));
     assert.equal(res.statusCode, 200);
+    assert.equal(res.headers["Access-Control-Allow-Origin"], "https://www.example.com");
     assert.ok(Array.isArray(JSON.parse(res.body).events));
   });
 
@@ -153,8 +156,10 @@ describe("unknown method", () => {
     assert.equal(res.statusCode, 404);
   });
 
-  it("returns 404 for direct OPTIONS requests when not handled by the Function URL", async () => {
+  it("returns 204 for preflight requests", async () => {
     const res = await handler(event({ method: "OPTIONS" }));
-    assert.equal(res.statusCode, 404);
+    assert.equal(res.statusCode, 204);
+    assert.equal(res.headers["Access-Control-Allow-Origin"], "https://www.example.com");
+    assert.equal(res.headers["Access-Control-Allow-Methods"], "GET, POST, OPTIONS");
   });
 });
