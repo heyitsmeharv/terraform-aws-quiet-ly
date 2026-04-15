@@ -88,7 +88,7 @@ analytics.track('contact_submitted', { form: 'contact' })
 | Name | Version |
 |------|---------|
 | Terraform | >= 1.6.0 |
-| AWS provider | ~> 5.0 |
+| AWS provider | ~> 6.28 |
 | Node.js | >= 22 (module development only - not required to use the module) |
 
 The AWS credentials used to run `terraform apply` require:
@@ -99,6 +99,8 @@ dynamodb:DescribeTable
 lambda:CreateFunction
 lambda:UpdateFunctionCode
 lambda:CreateFunctionUrlConfig
+lambda:AddPermission
+lambda:RemovePermission
 iam:CreateRole
 iam:PutRolePolicy
 logs:CreateLogGroup
@@ -138,6 +140,7 @@ logs:PutRetentionPolicy
 | `aws_cloudfront_distribution` | Public HTTPS entry point. Injects `CloudFront-Viewer-Country`, enforces HTTPS, and enables IPv6. Created when `enable_cloudfront` is `true`. |
 | `aws_dynamodb_table` | Stores all events using a single-table design with two GSIs. |
 | `aws_lambda_function` | Handles ingest (`POST`) and query (`GET`) requests. |
+| `aws_lambda_permission` | Grants public invoke access required for a `NONE` auth Lambda Function URL. |
 | `aws_iam_role` | Lambda execution role. |
 | `aws_iam_role_policy` | `dynamodb:PutItem` + `dynamodb:Query` scoped to the events table. |
 | `aws_lambda_function_url` | HTTPS endpoint with CORS - sits behind CloudFront when enabled. |
@@ -213,6 +216,10 @@ When `enable_cloudfront` is `true` (the default), CloudFront automatically injec
 When `enable_cloudfront` is `false`, requests reach the Lambda Function URL directly and the header is absent, so `country` is stored as an empty string.
 
 The `@quiet-ly/analytics` dashboard prefers `country` for location display and falls back to `timezone` when country enrichment is unavailable.
+
+## Troubleshooting
+
+If the browser reports `CORS header 'Access-Control-Allow-Origin' missing` together with a `403` from the CloudFront endpoint, the usual cause is not CORS itself. A Lambda Function URL with `authorization_type = "NONE"` still needs resource-based invoke permissions. This module now creates those permissions explicitly, so re-running `terraform init -upgrade` and `terraform apply` fixes the CloudFront `403` and allows the Function URL CORS headers to flow back to the browser.
 
 ---
 
