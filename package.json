@@ -1,7 +1,7 @@
 {
   "name": "terraform-aws-quiet-ly",
   "description": "A lightweight, self-hosted, privacy-first analytics module for AWS. Pairs with @quiet-ly/analytics.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": "Adam Harvey",
   "type": "module",
   "scripts": {

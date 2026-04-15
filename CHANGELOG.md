@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.3](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.2...v0.1.3) (2026-04-15)
+
+
+### Bug Fixes
+
+* handle CORS in Lambda responses instead of Function URL config ([81d5bd5](https://github.com/heyitsmeharv/quiet-ly-infra/commit/81d5bd5a9b3f9ae83cad259e773c938d8d225993))
+
 ## [0.1.2](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.1...v0.1.2) (2026-04-15)
 
 
