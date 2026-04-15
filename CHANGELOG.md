@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.2](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.1...v0.1.2) (2026-04-15)
+
+
+### Bug Fixes
+
+* add the missing public lambda function url permissions ([df6faf0](https://github.com/heyitsmeharv/quiet-ly-infra/commit/df6faf0594b69520f827a91801f9b349714a304a))
+
 ## 0.1.1 (2026-04-15)
 
 
