@@ -2,13 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
-## Unreleased
+## 0.1.1 (2026-04-15)
+
 
 ### Features
 
-* CloudFront distribution provisioned automatically by default (`enable_cloudfront = true`). Enables country enrichment via `CloudFront-Viewer-Country`, HTTPS redirect, and IPv6 without additional configuration. Set `enable_cloudfront = false` to revert to a direct Lambda Function URL.
-* Country enrichment now reads the `CloudFront-Viewer-Country` header when requests pass through CloudFront
-* Removed bundled GeoIP database packaging and Lambda layer configuration from the module
+* initial release of terraform-aws-quiet-ly ([45a1781](https://github.com/heyitsmeharv/quiet-ly-infra/commit/45a17814aa84881cf2f96aaf573d8a9f211e4b70))
 
 ## [0.1.0](https://github.com/heyitsmeharv/terraform-aws-quiet-ly/releases/tag/v0.1.0) (2026-04-14)
 
