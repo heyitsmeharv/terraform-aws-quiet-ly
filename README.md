@@ -85,11 +85,11 @@ analytics.track('contact_submitted', { form: 'contact' })
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| Terraform | >= 1.6.0 |
-| AWS provider | ~> 6.28 |
-| Node.js | >= 22 (module development only - not required to use the module) |
+| Name          | Version                                                                  |
+|---------------|--------------------------------------------------------------------------|
+| Terraform     | >= 1.6.0                                                                 |
+| AWS provider  | ~> 6.28                                                                  |
+| Node.js       | >= 22 (module development only - not required to use the module)         |
 
 The AWS credentials used to run `terraform apply` require:
 
@@ -111,40 +111,40 @@ logs:PutRetentionPolicy
 
 ## Inputs
 
-| Name | Type | Default | Required | Description |
-|------|------|---------|:--------:|-------------|
-| `allowed_origin` | `string` | - | yes | CORS allowed origin for the Lambda Function URL (e.g. `https://yourportfolio.com`). Use `*` to allow all origins. |
-| `table_name` | `string` | `"quiet-ly-events"` | no | DynamoDB table name. |
-| `log_retention_days` | `number` | `30` | no | CloudWatch log retention period in days. |
-| `enable_cloudfront` | `bool` | `true` | no | Provision a CloudFront distribution in front of the Lambda Function URL. Enables HTTPS redirect, IPv6, and country enrichment. Set to `false` to expose the Lambda Function URL directly. |
-| `enable_query_endpoint` | `bool` | `true` | no | Expose the GET query endpoint for dashboard use. Set to `false` for ingest-only deployments. |
-| `tags` | `map(string)` | `{}` | no | Tags applied to all created AWS resources. |
+| Name                      | Type          | Default               | Required | Description                                                                                                                                              |
+|---------------------------|---------------|-----------------------|:--------:|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `allowed_origin`          | `string`      | -                     |   yes    | CORS allowed origin for the Lambda Function URL (e.g. `https://yourportfolio.com`). Use `*` to allow all origins.                                        |
+| `table_name`              | `string`      | `"quiet-ly-events"`   |    no    | DynamoDB table name.                                                                                                                                     |
+| `log_retention_days`      | `number`      | `30`                  |    no    | CloudWatch log retention period in days.                                                                                                                 |
+| `enable_cloudfront`       | `bool`        | `true`                |    no    | Provision a CloudFront distribution in front of the Lambda Function URL. Enables HTTPS redirect, IPv6, and country enrichment. Set to `false` to expose the Lambda Function URL directly. |
+| `enable_query_endpoint`   | `bool`        | `true`                |    no    | Expose the GET query endpoint for dashboard use. Set to `false` for ingest-only deployments.                                                             |
+| `tags`                    | `map(string)` | `{}`                  |    no    | Tags applied to all created AWS resources.                                                                                                               |
 
 ---
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `endpoint_url` | Analytics endpoint URL - pass this to the SDK `endpoint` config option. Returns the CloudFront URL when `enable_cloudfront` is `true`, otherwise the Lambda Function URL. |
-| `cloudfront_domain_name` | CloudFront distribution domain name. `null` when `enable_cloudfront` is `false`. |
-| `table_name` | DynamoDB table name. |
-| `table_arn` | DynamoDB table ARN - useful for attaching additional IAM grants. |
+| Name                       | Description                                                                                                                                     |
+|----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| `endpoint_url`             | Analytics endpoint URL - pass this to the SDK `endpoint` config option. Returns the CloudFront URL when `enable_cloudfront` is `true`, otherwise the Lambda Function URL. |
+| `cloudfront_domain_name`   | CloudFront distribution domain name. `null` when `enable_cloudfront` is `false`.                                                               |
+| `table_name`               | DynamoDB table name.                                                                                                                            |
+| `table_arn`                | DynamoDB table ARN - useful for attaching additional IAM grants.                                                                                |
 
 ---
 
 ## Resources
 
-| Resource | Purpose |
-|----------|---------|
-| `aws_cloudfront_distribution` | Public HTTPS entry point. Injects `CloudFront-Viewer-Country`, enforces HTTPS, and enables IPv6. Created when `enable_cloudfront` is `true`. |
-| `aws_dynamodb_table` | Stores all events using a single-table design with two GSIs. |
-| `aws_lambda_function` | Handles ingest (`POST`) and query (`GET`) requests. |
-| `aws_lambda_permission` | Grants public invoke access required for a `NONE` auth Lambda Function URL. |
-| `aws_iam_role` | Lambda execution role. |
-| `aws_iam_role_policy` | `dynamodb:PutItem` + `dynamodb:Query` scoped to the events table. |
-| `aws_lambda_function_url` | HTTPS endpoint with CORS - sits behind CloudFront when enabled. |
-| `aws_cloudwatch_log_group` | Lambda logs with configurable retention. |
+| Resource                          | Purpose                                                                                                                               |
+|-----------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| `aws_cloudfront_distribution`     | Public HTTPS entry point. Injects `CloudFront-Viewer-Country`, enforces HTTPS, and enables IPv6. Created when `enable_cloudfront` is `true`. |
+| `aws_dynamodb_table`              | Stores all events using a single-table design with two GSIs.                                                                          |
+| `aws_lambda_function`             | Handles ingest (`POST`) and query (`GET`) requests.                                                                                   |
+| `aws_lambda_permission`           | Grants public invoke access required for a `NONE` auth Lambda Function URL.                                                           |
+| `aws_iam_role`                    | Lambda execution role.                                                                                                                |
+| `aws_iam_role_policy`             | `dynamodb:PutItem` + `dynamodb:Query` scoped to the events table.                                                                     |
+| `aws_lambda_function_url`         | HTTPS endpoint with CORS - sits behind CloudFront when enabled.                                                                       |
+| `aws_cloudwatch_log_group`        | Lambda logs with configurable retention.                                                                                              |
 
 ---
 
@@ -201,11 +201,11 @@ Returns a top-level `{ events: [...] }` array. Date ranges are capped at 366 day
 
 Single-table design with three access patterns:
 
-| Pattern | Key |
-|---------|-----|
-| All events for an app on a date | `PK: APP#<appId>#<date>` |
-| Events filtered by type on a date | `GSI1PK: TYPE#<type>#<date>` |
-| Events filtered by page on a date | `GSI2PK: PATH#<path>#<date>` |
+| Pattern                            | Key                              |
+|------------------------------------|----------------------------------|
+| All events for an app on a date    | `PK: APP#<appId>#<date>`         |
+| Events filtered by type on a date  | `GSI1PK: TYPE#<type>#<date>`     |
+| Events filtered by page on a date  | `GSI2PK: PATH#<path>#<date>`     |
 
 ---
 
@@ -217,12 +217,8 @@ When `enable_cloudfront` is `false`, requests reach the Lambda Function URL dire
 
 The `@quiet-ly/analytics` dashboard prefers `country` for location display and falls back to `timezone` when country enrichment is unavailable.
 
-## Troubleshooting
-
-If the browser reports `CORS header 'Access-Control-Allow-Origin' missing` together with a `403` from the CloudFront endpoint, the usual cause is not CORS itself. A Lambda Function URL with `authorization_type = "NONE"` still needs resource-based invoke permissions. This module now creates those permissions explicitly, so re-running `terraform init -upgrade` and `terraform apply` fixes the CloudFront `403` and allows the Function URL CORS headers to flow back to the browser.
-
 ---
 
-## License
+## Troubleshooting
 
-MIT
+If the browser reports `CORS header 'Access-Control-Allow-Origin' missing` together with a `403` from the CloudFront endpoint, the usual cause is not CORS itself. A Lambda Function URL with `authorization_type = "NONE"` still needs resource-based invoke permissions. This module creates those permissions explicitly via `aws_lambda_permission`, so re-running `terraform init -upgrade` and `terraform apply` fixes the CloudFront `403` and allows the Function URL CORS headers to flow back to the browser.
