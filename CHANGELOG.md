@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.4](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.3...v0.1.4) (2026-05-19)
+
+
+### Bug Fixes
+
+* add lambda timeout to prevent 502 on large date range queries ([de50e4f](https://github.com/heyitsmeharv/quiet-ly-infra/commit/de50e4f3f827a4477cb103ef508293ff93c9abee))
+
 ## [0.1.3](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.2...v0.1.3) (2026-04-15)
 
 
