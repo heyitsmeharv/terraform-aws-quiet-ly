@@ -118,6 +118,7 @@ logs:PutRetentionPolicy
 | `log_retention_days`      | `number`      | `30`                  |    no    | CloudWatch log retention period in days.                                                                                                                 |
 | `enable_cloudfront`       | `bool`        | `true`                |    no    | Provision a CloudFront distribution in front of the Lambda Function URL. Enables HTTPS redirect, IPv6, and country enrichment. Set to `false` to expose the Lambda Function URL directly. |
 | `enable_query_endpoint`   | `bool`        | `true`                |    no    | Expose the GET query endpoint for dashboard use. Set to `false` for ingest-only deployments.                                                             |
+| `lambda_timeout`          | `number`      | `30`                  |    no    | Lambda function timeout in seconds.                                                                                                                      |
 | `tags`                    | `map(string)` | `{}`                  |    no    | Tags applied to all created AWS resources.                                                                                                               |
 
 ---

@@ -21,6 +21,7 @@ module "analytics" {
   log_retention_days    = var.log_retention_days
   enable_cloudfront     = var.enable_cloudfront
   enable_query_endpoint = var.enable_query_endpoint
+  lambda_timeout        = var.lambda_timeout
   tags                  = var.tags
 }
 

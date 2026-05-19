@@ -33,6 +33,12 @@ variable "enable_query_endpoint" {
   default     = true
 }
 
+variable "lambda_timeout" {
+  type        = number
+  description = "Lambda function timeout in seconds."
+  default     = 30
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags to apply to all created AWS resources."
