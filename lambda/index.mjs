@@ -141,8 +141,15 @@ async function queryDate({ appId, type, date, client, TABLE_NAME }) {
     };
   }
 
-  const resp = await client.send(new QueryCommand(params));
-  return (resp.Items ?? []).map((item) => {
+  const items = [];
+  let lastKey;
+  do {
+    const resp = await client.send(new QueryCommand({ ...params, ExclusiveStartKey: lastKey }));
+    items.push(...(resp.Items ?? []));
+    lastKey = resp.LastEvaluatedKey;
+  } while (lastKey);
+
+  return items.map((item) => {
     const u = unmarshall(item);
     return { ...u, params: tryParseJson(u.params) };
   });
