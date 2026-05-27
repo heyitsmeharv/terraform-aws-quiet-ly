@@ -163,12 +163,41 @@ function buildSummary(events) {
     totalEvents:    events.length,
     pageViews:      pageViews.length,
     uniqueVisitors,
-    topPages:       topN(pageViews, (e) => e.path     || "(unknown)", "path"),
-    topReferrers:   topN(pageViews, (e) => e.referrer || "(direct)",  "referrer"),
-    topLocations:   topN(pageViews, (e) => e.country  || "(unknown)", "country"),
-    topDevices:     topN(events,    (e) => e.device   || "unknown",   "device"),
-    topBrowsers:    topN(events,    (e) => e.browser  || "Other",     "browser"),
+    dailyCounts:    buildDailyCounts(pageViews),
+    recentEvents:   buildRecentEvents(events),
+    countryCounts:  buildCountryCounts(pageViews),
+    topPages:       topN(pageViews, (e) => e.path                            || "(unknown)", "path"),
+    topReferrers:   topN(pageViews, (e) => e.referrer                        || "(direct)",  "referrer"),
+    topLocations:   topN(pageViews, (e) => e.country || e.timezone           || "(unknown)", "location"),
+    topDevices:     topN(pageViews, (e) => e.device                          || "unknown",   "device"),
+    topBrowsers:    topN(pageViews, (e) => e.browser                         || "Other",     "browser"),
   };
+}
+
+function buildDailyCounts(pageViews) {
+  const counts = {};
+  pageViews.forEach((e) => {
+    const date = e.timestamp.slice(0, 10);
+    counts[date] = (counts[date] ?? 0) + 1;
+  });
+  return Object.entries(counts)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, count]) => ({ date, views: count }));
+}
+
+function buildCountryCounts(pageViews) {
+  const counts = {};
+  pageViews.forEach((e) => {
+    const country = e.country?.trim();
+    if (country) counts[country] = (counts[country] ?? 0) + 1;
+  });
+  return counts;
+}
+
+function buildRecentEvents(events) {
+  return [...events]
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, 20);
 }
 
 function topN(events, keyFn, label, n = 10) {

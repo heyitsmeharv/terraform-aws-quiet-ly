@@ -295,6 +295,7 @@ describe("GET / — aggregate=true", () => {
       Items: [
         { PK: { S: "x" }, SK: { S: "y" }, appId: { S: "a" }, type: { S: "page_view" }, path: { S: "/home" }, referrer: { S: "" }, country: { S: "US" }, device: { S: "desktop" }, browser: { S: "Chrome" }, visitorId: { S: "v1" }, sessionId: { S: "s1" }, userId: { S: "" }, timestamp: { S: "2026-04-14T10:00:00.000Z" }, timezone: { S: "" }, locale: { S: "" }, params: { S: "{}" } },
         { PK: { S: "x" }, SK: { S: "z" }, appId: { S: "a" }, type: { S: "page_view" }, path: { S: "/about" }, referrer: { S: "https://google.com" }, country: { S: "GB" }, device: { S: "mobile" }, browser: { S: "Safari" }, visitorId: { S: "v2" }, sessionId: { S: "s2" }, userId: { S: "" }, timestamp: { S: "2026-04-14T11:00:00.000Z" }, timezone: { S: "" }, locale: { S: "" }, params: { S: "{}" } },
+        { PK: { S: "x" }, SK: { S: "w" }, appId: { S: "a" }, type: { S: "custom_event" }, path: { S: "/home" }, referrer: { S: "" }, country: { S: "US" }, device: { S: "desktop" }, browser: { S: "Chrome" }, visitorId: { S: "v1" }, sessionId: { S: "s1" }, userId: { S: "" }, timestamp: { S: "2026-04-14T12:00:00.000Z" }, timezone: { S: "" }, locale: { S: "" }, params: { S: "{}" } },
       ],
     }));
 
@@ -305,13 +306,51 @@ describe("GET / — aggregate=true", () => {
 
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
-    assert.ok(body.summary, "response should have a summary key");
-    assert.equal(body.summary.totalEvents, 2);
-    assert.equal(body.summary.pageViews, 2);
-    assert.equal(body.summary.uniqueVisitors, 2);
-    assert.equal(body.summary.topPages[0].path, "/home");
-    assert.equal(body.summary.topDevices[0].device, "desktop");
+    const s = body.summary;
+    assert.ok(s, "response should have a summary key");
     assert.ok(!body.events, "raw events should not be present");
+
+    assert.equal(s.totalEvents, 3);
+    assert.equal(s.pageViews, 2);
+    assert.equal(s.uniqueVisitors, 2);
+
+    // dailyCounts — page views only, sorted by date, field name is "views"
+    assert.deepEqual(s.dailyCounts, [{ date: "2026-04-14", views: 2 }]);
+
+    // recentEvents — all events, most recent first
+    assert.equal(s.recentEvents.length, 3);
+    assert.equal(s.recentEvents[0].timestamp, "2026-04-14T12:00:00.000Z");
+
+    // topLocations uses "location" field and country takes priority
+    assert.equal(s.topLocations[0].location, "US");
+
+    // countryCounts is an uncapped object keyed by ISO code (for WorldMap)
+    assert.deepEqual(s.countryCounts, { US: 1, GB: 1 });
+
+    // top breakdowns
+    // device/browser breakdowns are also page-views-only for consistency
+    assert.equal(s.topDevices[0].device, "desktop");
+    assert.equal(s.topBrowsers[0].browser, "Chrome");
+  });
+
+  it("dailyCounts spans multiple days in correct order", async () => {
+    mockSend.mock.mockImplementationOnce(async () => ({
+      Items: [
+        { PK: { S: "x" }, SK: { S: "a" }, appId: { S: "a" }, type: { S: "page_view" }, path: { S: "/" }, referrer: { S: "" }, country: { S: "" }, device: { S: "desktop" }, browser: { S: "Chrome" }, visitorId: { S: "v1" }, sessionId: { S: "s1" }, userId: { S: "" }, timestamp: { S: "2026-04-15T08:00:00.000Z" }, timezone: { S: "" }, locale: { S: "" }, params: { S: "{}" } },
+        { PK: { S: "x" }, SK: { S: "b" }, appId: { S: "a" }, type: { S: "page_view" }, path: { S: "/" }, referrer: { S: "" }, country: { S: "" }, device: { S: "desktop" }, browser: { S: "Chrome" }, visitorId: { S: "v2" }, sessionId: { S: "s2" }, userId: { S: "" }, timestamp: { S: "2026-04-14T09:00:00.000Z" }, timezone: { S: "" }, locale: { S: "" }, params: { S: "{}" } },
+      ],
+    }));
+
+    const res = await handler(event({
+      method: "GET",
+      qs: { appId: "test-app", from: "2026-04-14", to: "2026-04-15", aggregate: "true" },
+    }));
+
+    const { summary } = JSON.parse(res.body);
+    assert.deepEqual(summary.dailyCounts, [
+      { date: "2026-04-14", views: 1 },
+      { date: "2026-04-15", views: 1 },
+    ]);
   });
 
   it("returns raw events when aggregate param is absent", async () => {
