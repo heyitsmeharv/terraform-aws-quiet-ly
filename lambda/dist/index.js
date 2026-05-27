@@ -28878,11 +28878,33 @@ var require_dist_cjs58 = __commonJS({
 var index_exports = {};
 __export(index_exports, {
   createHandler: () => createHandler,
-  handler: () => handler
+  handler: () => handler,
+  isBot: () => isBot,
+  parseUserAgent: () => parseUserAgent
 });
 module.exports = __toCommonJS(index_exports);
 var import_client_dynamodb = __toESM(require_dist_cjs57(), 1);
 var import_util_dynamodb = __toESM(require_dist_cjs58(), 1);
+var BOT_RE = /bot|crawl|slurp|spider|mediapartners|googlebot|bingbot|yandex|baidu|duckduck|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|showyoubot|outbrain|pinterestbot|developers\.google\.com\/\+\/web\/snippet|www\.google\.com\/webmasters\/tools\/richsnippets|slackbot|vkshare|w3c_validator|redditbot|applebot|bitlybot|skypeuripreview|nuzzel|discordbot|google page speed|qwantify|bitrix link preview|xing-contenttabreceiver|chrome-lighthouse|telegrambot|headlesschrome|curl\/|wget\//i;
+function isBot(ua = "") {
+  return BOT_RE.test(ua);
+}
+function parseUserAgent(ua = "") {
+  let device = "desktop";
+  if (/tablet|ipad|playbook|silk/i.test(ua)) {
+    device = "tablet";
+  } else if (/mobile|iphone|ipod|android.*mobile|blackberry|windows phone/i.test(ua)) {
+    device = "mobile";
+  }
+  let browser = "Other";
+  if (/edg\//i.test(ua)) browser = "Edge";
+  else if (/samsungbrowser/i.test(ua)) browser = "Samsung";
+  else if (/opera|opr\//i.test(ua)) browser = "Opera";
+  else if (/chrome|crios/i.test(ua)) browser = "Chrome";
+  else if (/firefox|fxios/i.test(ua)) browser = "Firefox";
+  else if (/safari/i.test(ua)) browser = "Safari";
+  return { device, browser };
+}
 function lookupCountry(headers = {}) {
   const country = headers["cloudfront-viewer-country"] ?? headers["CloudFront-Viewer-Country"] ?? "";
   if (typeof country !== "string") return "";
@@ -28937,7 +28959,10 @@ async function handleIngest(event, client, TABLE_NAME, countryLookup, corsHeader
   if (!appId || !type || !timestamp) {
     return respond(400, { error: "Missing required fields: appId, type, timestamp" }, corsHeaders);
   }
+  const ua = event.headers?.["user-agent"] ?? "";
+  if (isBot(ua)) return respond(200, { ok: true }, corsHeaders);
   const country = countryLookup(event.headers ?? {});
+  const { device, browser } = parseUserAgent(ua);
   const date2 = timestamp.slice(0, 10);
   const eventId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   await client.send(
@@ -28957,6 +28982,8 @@ async function handleIngest(event, client, TABLE_NAME, countryLookup, corsHeader
           visitorId: visitorId ?? "",
           userId: userId ?? "",
           country,
+          device,
+          browser,
           timestamp,
           timezone: timezone ?? "",
           locale: locale ?? "",
@@ -28970,7 +28997,7 @@ async function handleIngest(event, client, TABLE_NAME, countryLookup, corsHeader
 }
 async function handleQuery(event, client, TABLE_NAME, corsHeaders) {
   const qs = event.queryStringParameters ?? {};
-  const { appId, from, to, type } = qs;
+  const { appId, from, to, type, aggregate } = qs;
   if (!appId || !from || !to) {
     return respond(400, { error: "Missing required params: appId, from, to" }, corsHeaders);
   }
@@ -28981,7 +29008,55 @@ async function handleQuery(event, client, TABLE_NAME, corsHeaders) {
   const results = await Promise.all(
     dates.map((date2) => queryDate({ appId, type, date: date2, client, TABLE_NAME }))
   );
-  return respond(200, { events: results.flat() }, corsHeaders);
+  const events = results.flat();
+  if (aggregate === "true") {
+    return respond(200, { summary: buildSummary(events) }, corsHeaders);
+  }
+  return respond(200, { events }, corsHeaders);
+}
+function buildSummary(events) {
+  const pageViews = events.filter((e5) => e5.type === "page_view");
+  const uniqueVisitors = new Set(events.map((e5) => e5.visitorId).filter(Boolean)).size;
+  return {
+    totalEvents: events.length,
+    pageViews: pageViews.length,
+    uniqueVisitors,
+    dailyCounts: buildDailyCounts(pageViews),
+    recentEvents: buildRecentEvents(events),
+    countryCounts: buildCountryCounts(pageViews),
+    topPages: topN(pageViews, (e5) => e5.path || "(unknown)", "path"),
+    topReferrers: topN(pageViews, (e5) => e5.referrer || "(direct)", "referrer"),
+    topLocations: topN(pageViews, (e5) => e5.country || e5.timezone || "(unknown)", "location"),
+    topDevices: topN(pageViews, (e5) => e5.device || "unknown", "device"),
+    topBrowsers: topN(pageViews, (e5) => e5.browser || "Other", "browser")
+  };
+}
+function buildDailyCounts(pageViews) {
+  const counts = {};
+  pageViews.forEach((e5) => {
+    const date2 = e5.timestamp.slice(0, 10);
+    counts[date2] = (counts[date2] ?? 0) + 1;
+  });
+  return Object.entries(counts).sort((a5, b5) => a5[0].localeCompare(b5[0])).map(([date2, count]) => ({ date: date2, views: count }));
+}
+function buildCountryCounts(pageViews) {
+  const counts = {};
+  pageViews.forEach((e5) => {
+    const country = e5.country?.trim();
+    if (country) counts[country] = (counts[country] ?? 0) + 1;
+  });
+  return counts;
+}
+function buildRecentEvents(events) {
+  return [...events].sort((a5, b5) => b5.timestamp.localeCompare(a5.timestamp)).slice(0, 20);
+}
+function topN(events, keyFn, label, n5 = 10) {
+  const counts = {};
+  events.forEach((e5) => {
+    const k5 = keyFn(e5);
+    counts[k5] = (counts[k5] ?? 0) + 1;
+  });
+  return Object.entries(counts).sort((a5, b5) => b5[1] - a5[1]).slice(0, n5).map(([key, count]) => ({ [label]: key, count }));
 }
 async function queryDate({ appId, type, date: date2, client, TABLE_NAME }) {
   let params;
@@ -29003,8 +29078,14 @@ async function queryDate({ appId, type, date: date2, client, TABLE_NAME }) {
       ExpressionAttributeValues: (0, import_util_dynamodb.marshall)({ ":pk": `APP#${appId}#${date2}` })
     };
   }
-  const resp = await client.send(new import_client_dynamodb.QueryCommand(params));
-  return (resp.Items ?? []).map((item) => {
+  const items = [];
+  let lastKey;
+  do {
+    const resp = await client.send(new import_client_dynamodb.QueryCommand({ ...params, ExclusiveStartKey: lastKey }));
+    items.push(...resp.Items ?? []);
+    lastKey = resp.LastEvaluatedKey;
+  } while (lastKey);
+  return items.map((item) => {
     const u5 = (0, import_util_dynamodb.unmarshall)(item);
     return { ...u5, params: tryParseJson(u5.params) };
   });
@@ -29050,5 +29131,7 @@ function respond(statusCode, body, extraHeaders = {}) {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   createHandler,
-  handler
+  handler,
+  isBot,
+  parseUserAgent
 });
