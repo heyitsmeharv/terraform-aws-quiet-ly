@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.6](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.5...v0.1.6) (2026-05-27)
+
+
+### Features
+
+* refine aggregation endpoint summary shape ([dd70ada](https://github.com/heyitsmeharv/quiet-ly-infra/commit/dd70adabea580b624b84dc5b0c803deb1593e1d5))
+
 ## [0.1.5](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.4...v0.1.5) (2026-05-27)
 
 
