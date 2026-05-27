@@ -178,7 +178,12 @@ Content-Type: application/json
 }
 ```
 
-Returns `{ ok: true }` on success. Returns `400` when `appId`, `type`, or `timestamp` are missing.
+Returns `{ ok: true }` on success. Returns `400` when `appId`, `type`, or `timestamp` are missing. Bot and crawler requests are detected from the `User-Agent` header and acknowledged silently without being stored.
+
+The Lambda enriches each stored event with two server-side fields derived from the `User-Agent` header:
+
+- **`device`** — `"mobile"`, `"tablet"`, or `"desktop"`
+- **`browser`** — `"Chrome"`, `"Firefox"`, `"Safari"`, `"Edge"`, `"Opera"`, `"Samsung"`, or `"Other"`
 
 ### Query
 
@@ -196,6 +201,33 @@ GET <endpoint>?appId=my-portfolio&from=2026-04-01&to=2026-04-14&type=page_view
 
 Returns a top-level `{ events: [...] }` array. Date ranges are capped at 366 days. The query endpoint can be disabled with `enable_query_endpoint = false`.
 
+#### Aggregation mode
+
+Add `aggregate=true` to receive a pre-aggregated summary instead of raw events. This reduces response size significantly for longer date ranges:
+
+```
+GET <endpoint>?appId=my-portfolio&from=2026-04-01&to=2026-04-30&aggregate=true
+```
+
+Response shape:
+
+```ts
+{
+  summary: {
+    totalEvents:    number
+    pageViews:      number
+    uniqueVisitors: number
+    topPages:       Array<{ path: string;     count: number }>
+    topReferrers:   Array<{ referrer: string; count: number }>
+    topLocations:   Array<{ country: string;  count: number }>
+    topDevices:     Array<{ device: string;   count: number }>
+    topBrowsers:    Array<{ browser: string;  count: number }>
+  }
+}
+```
+
+Each `top*` array contains up to 10 entries sorted by count descending.
+
 ---
 
 ## DynamoDB Design
@@ -210,13 +242,23 @@ Single-table design with three access patterns:
 
 ---
 
-## Country Enrichment
+## Server-side Enrichment
 
-When `enable_cloudfront` is `true` (the default), CloudFront automatically injects the `CloudFront-Viewer-Country` header on every request. The Lambda handler reads this header and stores a two-letter ISO country code in the `country` field on each event.
+### Country
+
+When `enable_cloudfront` is `true` (the default), CloudFront automatically injects the `CloudFront-Viewer-Country` header on every request. The Lambda reads this header and stores a two-letter ISO country code in the `country` field on each event.
 
 When `enable_cloudfront` is `false`, requests reach the Lambda Function URL directly and the header is absent, so `country` is stored as an empty string.
 
 The `@quiet-ly/analytics` dashboard prefers `country` for location display and falls back to `timezone` when country enrichment is unavailable.
+
+### Device & Browser
+
+The Lambda parses the `User-Agent` request header on every ingest and stores two categorical fields — `device` and `browser` — alongside the event. No raw UA string is stored. See the [Ingest](#ingest) section for the full set of possible values.
+
+### Bot Filtering
+
+Known bots and crawlers (Googlebot, Bingbot, Slackbot, link preview scrapers, etc.) are detected from the `User-Agent` header. Their requests are acknowledged with `{ ok: true }` but not written to DynamoDB, keeping analytics data clean without exposing the filtering behaviour to the caller.
 
 ---
 

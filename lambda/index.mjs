@@ -1,6 +1,31 @@
 import { DynamoDBClient, PutItemCommand, QueryCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 
+const BOT_RE = /bot|crawl|slurp|spider|mediapartners|googlebot|bingbot|yandex|baidu|duckduck|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|showyoubot|outbrain|pinterestbot|developers\.google\.com\/\+\/web\/snippet|www\.google\.com\/webmasters\/tools\/richsnippets|slackbot|vkshare|w3c_validator|redditbot|applebot|bitlybot|skypeuripreview|nuzzel|discordbot|google page speed|qwantify|bitrix link preview|xing-contenttabreceiver|chrome-lighthouse|telegrambot|headlesschrome|curl\/|wget\//i;
+
+export function isBot(ua = "") {
+  return BOT_RE.test(ua);
+}
+
+export function parseUserAgent(ua = "") {
+  let device = "desktop";
+  if (/tablet|ipad|playbook|silk/i.test(ua)) {
+    device = "tablet";
+  } else if (/mobile|iphone|ipod|android.*mobile|blackberry|windows phone/i.test(ua)) {
+    device = "mobile";
+  }
+
+  let browser = "Other";
+  if      (/edg\//i.test(ua))          browser = "Edge";
+  else if (/samsungbrowser/i.test(ua)) browser = "Samsung";
+  else if (/opera|opr\//i.test(ua))    browser = "Opera";
+  else if (/chrome|crios/i.test(ua))   browser = "Chrome";
+  else if (/firefox|fxios/i.test(ua))  browser = "Firefox";
+  else if (/safari/i.test(ua))         browser = "Safari";
+
+  return { device, browser };
+}
+
 function lookupCountry(headers = {}) {
   const country =
     headers["cloudfront-viewer-country"] ??
@@ -63,7 +88,11 @@ async function handleIngest(event, client, TABLE_NAME, countryLookup, corsHeader
     return respond(400, { error: "Missing required fields: appId, type, timestamp" }, corsHeaders);
   }
 
+  const ua = event.headers?.["user-agent"] ?? "";
+  if (isBot(ua)) return respond(200, { ok: true }, corsHeaders);
+
   const country = countryLookup(event.headers ?? {});
+  const { device, browser } = parseUserAgent(ua);
 
   const date    = timestamp.slice(0, 10); // YYYY-MM-DD
   const eventId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -85,6 +114,8 @@ async function handleIngest(event, client, TABLE_NAME, countryLookup, corsHeader
           visitorId: visitorId ?? "",
           userId:    userId    ?? "",
           country,
+          device,
+          browser,
           timestamp,
           timezone:  timezone  ?? "",
           locale:    locale    ?? "",
@@ -102,7 +133,7 @@ async function handleIngest(event, client, TABLE_NAME, countryLookup, corsHeader
 
 async function handleQuery(event, client, TABLE_NAME, corsHeaders) {
   const qs = event.queryStringParameters ?? {};
-  const { appId, from, to, type } = qs;
+  const { appId, from, to, type, aggregate } = qs;
 
   if (!appId || !from || !to) {
     return respond(400, { error: "Missing required params: appId, from, to" }, corsHeaders);
@@ -116,7 +147,40 @@ async function handleQuery(event, client, TABLE_NAME, corsHeaders) {
   const results = await Promise.all(
     dates.map((date) => queryDate({ appId, type, date, client, TABLE_NAME }))
   );
-  return respond(200, { events: results.flat() }, corsHeaders);
+  const events = results.flat();
+
+  if (aggregate === "true") {
+    return respond(200, { summary: buildSummary(events) }, corsHeaders);
+  }
+  return respond(200, { events }, corsHeaders);
+}
+
+function buildSummary(events) {
+  const pageViews = events.filter((e) => e.type === "page_view");
+  const uniqueVisitors = new Set(events.map((e) => e.visitorId).filter(Boolean)).size;
+
+  return {
+    totalEvents:    events.length,
+    pageViews:      pageViews.length,
+    uniqueVisitors,
+    topPages:       topN(pageViews, (e) => e.path     || "(unknown)", "path"),
+    topReferrers:   topN(pageViews, (e) => e.referrer || "(direct)",  "referrer"),
+    topLocations:   topN(pageViews, (e) => e.country  || "(unknown)", "country"),
+    topDevices:     topN(events,    (e) => e.device   || "unknown",   "device"),
+    topBrowsers:    topN(events,    (e) => e.browser  || "Other",     "browser"),
+  };
+}
+
+function topN(events, keyFn, label, n = 10) {
+  const counts = {};
+  events.forEach((e) => {
+    const k = keyFn(e);
+    counts[k] = (counts[k] ?? 0) + 1;
+  });
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([key, count]) => ({ [label]: key, count }));
 }
 
 async function queryDate({ appId, type, date, client, TABLE_NAME }) {
