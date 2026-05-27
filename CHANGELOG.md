@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.5](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.4...v0.1.5) (2026-05-27)
+
+
+### Features
+
+* add device/browser enrichment, bot filtering, and aggregation ([b39a818](https://github.com/heyitsmeharv/quiet-ly-infra/commit/b39a818b0608ccd64ec77fda1a40d51f8a1f9ac1))
+
 ## [0.1.4](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.3...v0.1.4) (2026-05-19)
 
 
