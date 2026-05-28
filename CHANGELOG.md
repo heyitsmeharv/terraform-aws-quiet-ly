@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.11](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.10...v0.1.11) (2026-05-28)
+
+
+### Bug Fixes
+
+* publish lambda changes ([3fbb59e](https://github.com/heyitsmeharv/quiet-ly-infra/commit/3fbb59e57920e6f4e22217a716cfe261cbaf5ed8))
+
 ## [0.1.10](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.9...v0.1.10) (2026-05-28)
 
 
