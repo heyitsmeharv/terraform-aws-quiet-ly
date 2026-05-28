@@ -500,6 +500,50 @@ describe("GET / — funnelSteps", () => {
   });
 });
 
+// ─── Visitor journey query ────────────────────────────────────────────────────
+
+describe("GET / — visitorId without funnelSteps", () => {
+  beforeEach(() => mockSend.mock.resetCalls());
+
+  it("returns only that visitor's events in chronological order", async () => {
+    mockSend.mock.mockImplementationOnce(async () => ({
+      Items: [
+        makeItem({ type: "page_view", path: "/blog",  visitorId: "v1", timestamp: "2026-04-14T10:05:00.000Z" }),
+        makeItem({ type: "page_view", path: "/",      visitorId: "v1", timestamp: "2026-04-14T10:00:00.000Z" }),
+        makeItem({ type: "page_view", path: "/about", visitorId: "v2", timestamp: "2026-04-14T09:00:00.000Z" }),
+        makeItem({ type: "click",     path: "/blog",  visitorId: "v1", timestamp: "2026-04-14T10:06:00.000Z" }),
+      ],
+    }));
+
+    const res = await handler(event({
+      method: "GET",
+      qs: { appId: "test-app", from: "2026-04-14", to: "2026-04-14", visitorId: "v1" },
+    }));
+
+    assert.equal(res.statusCode, 200);
+    const { events } = JSON.parse(res.body);
+    assert.ok(Array.isArray(events));
+    assert.equal(events.length, 3);
+    assert.ok(events.every((e) => e.visitorId === "v1"));
+    assert.equal(events[0].path, "/");
+    assert.equal(events[1].path, "/blog");
+    assert.equal(events[2].type, "click");
+  });
+
+  it("returns an empty array when the visitor has no events in range", async () => {
+    mockSend.mock.mockImplementationOnce(async () => ({ Items: [] }));
+
+    const res = await handler(event({
+      method: "GET",
+      qs: { appId: "test-app", from: "2026-04-14", to: "2026-04-14", visitorId: "v-unknown" },
+    }));
+
+    assert.equal(res.statusCode, 200);
+    const { events } = JSON.parse(res.body);
+    assert.deepEqual(events, []);
+  });
+});
+
 // ─── Unknown method ───────────────────────────────────────────────────────────
 
 describe("unknown method", () => {

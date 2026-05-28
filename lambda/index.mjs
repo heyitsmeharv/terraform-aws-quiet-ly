@@ -168,6 +168,14 @@ async function handleQuery(event, client, TABLE_NAME, corsHeaders) {
   if (aggregate === "true") {
     return respond(200, { summary: buildSummary(events) }, corsHeaders);
   }
+
+  if (visitorId) {
+    const visitorEvents = events
+      .filter((e) => e.visitorId === visitorId)
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    return respond(200, { events: visitorEvents }, corsHeaders);
+  }
+
   return respond(200, { events }, corsHeaders);
 }
 

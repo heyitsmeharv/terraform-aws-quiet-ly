@@ -33370,6 +33370,10 @@ async function handleQuery(event, client, TABLE_NAME, corsHeaders) {
   if (aggregate === "true") {
     return respond(200, { summary: buildSummary(events) }, corsHeaders);
   }
+  if (visitorId) {
+    const visitorEvents = events.filter((e5) => e5.visitorId === visitorId).sort((a5, b5) => a5.timestamp.localeCompare(b5.timestamp));
+    return respond(200, { events: visitorEvents }, corsHeaders);
+  }
   return respond(200, { events }, corsHeaders);
 }
 function buildSummary(events) {

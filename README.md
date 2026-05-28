@@ -231,6 +231,24 @@ Response shape:
 
 Each `top*` array contains up to 10 entries sorted by count descending. `dailyCounts` only includes dates with at least one page view — zero-traffic days are omitted.
 
+#### Visitor journey mode
+
+Add `visitorId` (without `funnelSteps` or `aggregate`) to retrieve a single visitor's events in chronological order:
+
+```
+GET <endpoint>?appId=my-portfolio&from=2026-05-01&to=2026-05-28&visitorId=v-abc123
+```
+
+Response shape:
+
+```ts
+{
+  events: Array<Event>   // all events for this visitor, sorted oldest → newest
+}
+```
+
+This is the query used by the `VisitorJourney` dashboard component to render the per-visitor event timeline.
+
 #### Funnel analysis mode
 
 Replace `aggregate=true` with `funnelSteps` to compute a sequential conversion funnel:
@@ -239,7 +257,7 @@ Replace `aggregate=true` with `funnelSteps` to compute a sequential conversion f
 GET <endpoint>?appId=my-portfolio&from=2026-05-01&to=2026-05-28&funnelSteps=[{"type":"page_view","path":"/"},{"type":"purchase"}]
 ```
 
-Add `visitorId` to scope the result to a single visitor (used by the `FunnelChart` User Journey stepper in the dashboard):
+Add `visitorId` to scope the funnel result to a single visitor:
 
 ```
 GET <endpoint>?appId=my-portfolio&from=2026-05-01&to=2026-05-28&funnelSteps=[...]&visitorId=v-abc123
