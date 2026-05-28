@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.10](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.9...v0.1.10) (2026-05-28)
+
+
+### Bug Fixes
+
+* exclude pre-feature events from device/browser aggregation ([dee349b](https://github.com/heyitsmeharv/quiet-ly-infra/commit/dee349ba90d0d42daaedf7b866445b0fbe88b040))
+
 ## [0.1.9](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.8...v0.1.9) (2026-05-28)
 
 
