@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.9](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.8...v0.1.9) (2026-05-28)
+
+
+### Features
+
+* return visitor events chronologically when visitorId is queried ([51605d7](https://github.com/heyitsmeharv/quiet-ly-infra/commit/51605d7fd1c4789c13605dc3035c16190e8abb32))
+
 ## [0.1.8](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.7...v0.1.8) (2026-05-28)
 
 
