@@ -33389,8 +33389,8 @@ function buildSummary(events) {
     topPages: topN(pageViews, (e5) => e5.path || "(unknown)", "path"),
     topReferrers: topN(pageViews, (e5) => e5.referrer || "(direct)", "referrer"),
     topLocations: topN(pageViews, (e5) => e5.country || e5.timezone || "(unknown)", "location"),
-    topDevices: topN(pageViews, (e5) => e5.device || "unknown", "device"),
-    topBrowsers: topN(pageViews, (e5) => e5.browser || "Other", "browser")
+    topDevices: topN(pageViews.filter((e5) => e5.device), (e5) => e5.device, "device"),
+    topBrowsers: topN(pageViews.filter((e5) => e5.browser), (e5) => e5.browser, "browser")
   };
 }
 function buildDailyCounts(pageViews) {
