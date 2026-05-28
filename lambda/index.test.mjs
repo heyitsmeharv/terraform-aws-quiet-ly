@@ -363,6 +363,143 @@ describe("GET / — aggregate=true", () => {
   });
 });
 
+// ─── Funnel query ─────────────────────────────────────────────────────────────
+
+const makeItem = (overrides) => ({
+  PK: { S: "x" }, SK: { S: Math.random().toString() },
+  appId: { S: "test-app" }, referrer: { S: "" }, country: { S: "" },
+  device: { S: "desktop" }, browser: { S: "Chrome" },
+  sessionId: { S: "s1" }, userId: { S: "" },
+  timezone: { S: "" }, locale: { S: "" }, params: { S: "{}" },
+  ...Object.fromEntries(Object.entries(overrides).map(([k, v]) => [k, { S: v }])),
+});
+
+describe("GET / — funnelSteps", () => {
+  beforeEach(() => mockSend.mock.resetCalls());
+
+  it("returns 400 for invalid funnelSteps JSON", async () => {
+    const res = await handler(event({
+      method: "GET",
+      qs: { appId: "test-app", from: "2026-04-14", to: "2026-04-14", funnelSteps: "not-json" },
+    }));
+    assert.equal(res.statusCode, 400);
+    assert.equal(mockSend.mock.calls.length, 0);
+  });
+
+  it("returns 400 for fewer than 2 steps", async () => {
+    const res = await handler(event({
+      method: "GET",
+      qs: {
+        appId: "test-app", from: "2026-04-14", to: "2026-04-14",
+        funnelSteps: JSON.stringify([{ type: "page_view" }]),
+      },
+    }));
+    assert.equal(res.statusCode, 400);
+    assert.equal(mockSend.mock.calls.length, 0);
+  });
+
+  it("counts visitors who complete steps in order", async () => {
+    // v1: homepage → purchase  (completes both)
+    // v2: homepage only        (completes step 1)
+    // v3: purchase only        (completes neither — no homepage first)
+    mockSend.mock.mockImplementationOnce(async () => ({
+      Items: [
+        makeItem({ type: "page_view", path: "/",        visitorId: "v1", timestamp: "2026-04-14T10:00:00.000Z" }),
+        makeItem({ type: "purchase",  path: "/checkout", visitorId: "v1", timestamp: "2026-04-14T10:05:00.000Z" }),
+        makeItem({ type: "page_view", path: "/",        visitorId: "v2", timestamp: "2026-04-14T11:00:00.000Z" }),
+        makeItem({ type: "purchase",  path: "/checkout", visitorId: "v3", timestamp: "2026-04-14T12:00:00.000Z" }),
+      ],
+    }));
+
+    const steps = [
+      { label: "Homepage", type: "page_view", path: "/" },
+      { label: "Purchase", type: "purchase" },
+    ];
+    const res = await handler(event({
+      method: "GET",
+      qs: { appId: "test-app", from: "2026-04-14", to: "2026-04-14", funnelSteps: JSON.stringify(steps) },
+    }));
+
+    assert.equal(res.statusCode, 200);
+    const { funnel } = JSON.parse(res.body);
+    assert.ok(Array.isArray(funnel));
+    assert.equal(funnel.length, 2);
+    assert.equal(funnel[0].count, 2);          // v1 + v2 saw homepage
+    assert.equal(funnel[1].count, 1);          // only v1 purchased after homepage
+    assert.equal(funnel[0].conversionRate, null);
+    assert.ok(Math.abs(funnel[1].conversionRate - 0.5) < 0.001); // 1/2
+  });
+
+  it("skips events with an empty visitorId", async () => {
+    mockSend.mock.mockImplementationOnce(async () => ({
+      Items: [
+        makeItem({ type: "page_view", path: "/", visitorId: "", timestamp: "2026-04-14T10:00:00.000Z" }),
+      ],
+    }));
+
+    const res = await handler(event({
+      method: "GET",
+      qs: {
+        appId: "test-app", from: "2026-04-14", to: "2026-04-14",
+        funnelSteps: JSON.stringify([{ type: "page_view" }, { type: "purchase" }]),
+      },
+    }));
+
+    const { funnel } = JSON.parse(res.body);
+    assert.equal(funnel[0].count, 0);
+  });
+
+  it("scopes funnel to a single visitorId when provided", async () => {
+    // Both v1 and v2 complete the funnel, but querying for v1 only should return counts of 1
+    mockSend.mock.mockImplementationOnce(async () => ({
+      Items: [
+        makeItem({ type: "page_view", path: "/",        visitorId: "v1", timestamp: "2026-04-14T10:00:00.000Z" }),
+        makeItem({ type: "purchase",  path: "/checkout", visitorId: "v1", timestamp: "2026-04-14T10:05:00.000Z" }),
+        makeItem({ type: "page_view", path: "/",        visitorId: "v2", timestamp: "2026-04-14T11:00:00.000Z" }),
+        makeItem({ type: "purchase",  path: "/checkout", visitorId: "v2", timestamp: "2026-04-14T11:05:00.000Z" }),
+      ],
+    }));
+
+    const steps = [
+      { label: "Homepage", type: "page_view", path: "/" },
+      { label: "Purchase", type: "purchase" },
+    ];
+    const res = await handler(event({
+      method: "GET",
+      qs: { appId: "test-app", from: "2026-04-14", to: "2026-04-14", funnelSteps: JSON.stringify(steps), visitorId: "v1" },
+    }));
+
+    assert.equal(res.statusCode, 200);
+    const { funnel } = JSON.parse(res.body);
+    assert.equal(funnel[0].count, 1); // only v1
+    assert.equal(funnel[1].count, 1); // v1 completes both steps
+    assert.equal(funnel[0].conversionRate, null);
+    assert.equal(funnel[1].conversionRate, 1); // 1/1
+  });
+
+  it("respects step path filter", async () => {
+    // v1 hits /about then purchase — should NOT match step 1 which requires /
+    mockSend.mock.mockImplementationOnce(async () => ({
+      Items: [
+        makeItem({ type: "page_view", path: "/about", visitorId: "v1", timestamp: "2026-04-14T10:00:00.000Z" }),
+        makeItem({ type: "purchase",  path: "/checkout", visitorId: "v1", timestamp: "2026-04-14T10:05:00.000Z" }),
+      ],
+    }));
+
+    const res = await handler(event({
+      method: "GET",
+      qs: {
+        appId: "test-app", from: "2026-04-14", to: "2026-04-14",
+        funnelSteps: JSON.stringify([{ type: "page_view", path: "/" }, { type: "purchase" }]),
+      },
+    }));
+
+    const { funnel } = JSON.parse(res.body);
+    assert.equal(funnel[0].count, 0); // no one hit / specifically
+    assert.equal(funnel[1].count, 0);
+  });
+});
+
 // ─── Unknown method ───────────────────────────────────────────────────────────
 
 describe("unknown method", () => {

@@ -231,6 +231,36 @@ Response shape:
 
 Each `top*` array contains up to 10 entries sorted by count descending. `dailyCounts` only includes dates with at least one page view — zero-traffic days are omitted.
 
+#### Funnel analysis mode
+
+Replace `aggregate=true` with `funnelSteps` to compute a sequential conversion funnel:
+
+```
+GET <endpoint>?appId=my-portfolio&from=2026-05-01&to=2026-05-28&funnelSteps=[{"type":"page_view","path":"/"},{"type":"purchase"}]
+```
+
+Add `visitorId` to scope the result to a single visitor (used by the `FunnelChart` User Journey stepper in the dashboard):
+
+```
+GET <endpoint>?appId=my-portfolio&from=2026-05-01&to=2026-05-28&funnelSteps=[...]&visitorId=v-abc123
+```
+
+Response shape:
+
+```ts
+{
+  funnel: Array<{
+    label:          string          // display label (from step definition, falls back to path or type)
+    type:           string          // event type
+    path?:          string          // path filter, if specified in the step definition
+    count:          number          // visitors who reached this step
+    conversionRate: number | null   // count / previous step count; null for the first step
+  }>
+}
+```
+
+Steps are matched in chronological order per visitor. A visitor must trigger step _n_ before step _n+1_ counts. At least 2 steps are required; the date range limit of 366 days applies.
+
 ---
 
 ## DynamoDB Design

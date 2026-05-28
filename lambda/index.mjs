@@ -133,7 +133,7 @@ async function handleIngest(event, client, TABLE_NAME, countryLookup, corsHeader
 
 async function handleQuery(event, client, TABLE_NAME, corsHeaders) {
   const qs = event.queryStringParameters ?? {};
-  const { appId, from, to, type, aggregate } = qs;
+  const { appId, from, to, type, aggregate, funnelSteps, visitorId } = qs;
 
   if (!appId || !from || !to) {
     return respond(400, { error: "Missing required params: appId, from, to" }, corsHeaders);
@@ -142,6 +142,22 @@ async function handleQuery(event, client, TABLE_NAME, corsHeaders) {
   const dates = getDatesInRange(from, to);
   if (dates.length > 366) {
     return respond(400, { error: "Date range must be 366 days or fewer" }, corsHeaders);
+  }
+
+  if (funnelSteps !== undefined) {
+    let steps;
+    try {
+      steps = JSON.parse(funnelSteps);
+    } catch {
+      return respond(400, { error: "Invalid funnelSteps: must be a JSON array" }, corsHeaders);
+    }
+    if (!Array.isArray(steps) || steps.length < 2) {
+      return respond(400, { error: "funnelSteps must be a JSON array with at least 2 steps" }, corsHeaders);
+    }
+    const results = await Promise.all(
+      dates.map((date) => queryDate({ appId, date, client, TABLE_NAME }))
+    );
+    return respond(200, { funnel: computeFunnel(results.flat(), steps, visitorId ?? null) }, corsHeaders);
   }
 
   const results = await Promise.all(
@@ -246,6 +262,47 @@ async function queryDate({ appId, type, date, client, TABLE_NAME }) {
     const u = unmarshall(item);
     return { ...u, params: tryParseJson(u.params) };
   });
+}
+
+// ─── Funnel ───────────────────────────────────────────────────────────────────
+
+function computeFunnel(events, steps, visitorId = null) {
+  const byVisitor = Object.create(null);
+  for (const event of events) {
+    if (!event.visitorId) continue;
+    if (visitorId && event.visitorId !== visitorId) continue;
+    (byVisitor[event.visitorId] ??= []).push(event);
+  }
+  for (const visitorEvents of Object.values(byVisitor)) {
+    visitorEvents.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  }
+
+  const stepCounts = new Array(steps.length).fill(0);
+
+  for (const visitorEvents of Object.values(byVisitor)) {
+    let stepIndex = 0;
+    for (const event of visitorEvents) {
+      if (stepIndex >= steps.length) break;
+      if (matchesStep(event, steps[stepIndex])) {
+        stepCounts[stepIndex]++;
+        stepIndex++;
+      }
+    }
+  }
+
+  return steps.map((step, i) => ({
+    label: step.label || step.path || step.type,
+    type: step.type,
+    ...(step.path ? { path: step.path } : {}),
+    count: stepCounts[i],
+    conversionRate: i === 0 || stepCounts[i - 1] === 0
+      ? null
+      : stepCounts[i] / stepCounts[i - 1],
+  }));
+}
+
+function matchesStep(event, step) {
+  return event.type === step.type && (!step.path || event.path === step.path);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
