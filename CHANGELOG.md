@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.8](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.7...v0.1.8) (2026-05-28)
+
+
+### Features
+
+* feat: funnel query endpoint, visitorId scoping, and build cleanup ([248b970](https://github.com/heyitsmeharv/quiet-ly-infra/commit/248b970359796d1bb5206f7ea0121f1d858fd38a))
+
 ## [0.1.7](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.6...v0.1.7) (2026-05-27)
 
 
