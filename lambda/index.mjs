@@ -193,8 +193,8 @@ function buildSummary(events) {
     topPages:       topN(pageViews, (e) => e.path                            || "(unknown)", "path"),
     topReferrers:   topN(pageViews, (e) => e.referrer                        || "(direct)",  "referrer"),
     topLocations:   topN(pageViews, (e) => e.country || e.timezone           || "(unknown)", "location"),
-    topDevices:     topN(pageViews, (e) => e.device                          || "unknown",   "device"),
-    topBrowsers:    topN(pageViews, (e) => e.browser                         || "Other",     "browser"),
+    topDevices:     topN(pageViews.filter((e) => e.device),  (e) => e.device,  "device"),
+    topBrowsers:    topN(pageViews.filter((e) => e.browser), (e) => e.browser, "browser"),
   };
 }
 

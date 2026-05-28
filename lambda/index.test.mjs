@@ -333,6 +333,28 @@ describe("GET / — aggregate=true", () => {
     assert.equal(s.topBrowsers[0].browser, "Chrome");
   });
 
+  it("excludes pre-feature events (no device/browser) from topDevices and topBrowsers", async () => {
+    mockSend.mock.mockImplementationOnce(async () => ({
+      Items: [
+        // current event — has device/browser
+        { PK: { S: "x" }, SK: { S: "a" }, appId: { S: "a" }, type: { S: "page_view" }, path: { S: "/" }, referrer: { S: "" }, country: { S: "" }, device: { S: "desktop" }, browser: { S: "Chrome" }, visitorId: { S: "v1" }, sessionId: { S: "s1" }, userId: { S: "" }, timestamp: { S: "2026-05-28T10:00:00.000Z" }, timezone: { S: "" }, locale: { S: "" }, params: { S: "{}" } },
+        // legacy event — missing device and browser attributes entirely
+        { PK: { S: "x" }, SK: { S: "b" }, appId: { S: "a" }, type: { S: "page_view" }, path: { S: "/" }, referrer: { S: "" }, country: { S: "" }, visitorId: { S: "v2" }, sessionId: { S: "s2" }, userId: { S: "" }, timestamp: { S: "2026-05-01T10:00:00.000Z" }, timezone: { S: "" }, locale: { S: "" }, params: { S: "{}" } },
+      ],
+    }));
+
+    const res = await handler(event({
+      method: "GET",
+      qs: { appId: "test-app", from: "2026-05-01", to: "2026-05-28", aggregate: "true" },
+    }));
+
+    const { summary } = JSON.parse(res.body);
+    assert.equal(summary.topDevices.length, 1, "legacy event should not appear in topDevices");
+    assert.equal(summary.topDevices[0].device, "desktop");
+    assert.equal(summary.topBrowsers.length, 1, "legacy event should not appear in topBrowsers");
+    assert.equal(summary.topBrowsers[0].browser, "Chrome");
+  });
+
   it("dailyCounts spans multiple days in correct order", async () => {
     mockSend.mock.mockImplementationOnce(async () => ({
       Items: [
