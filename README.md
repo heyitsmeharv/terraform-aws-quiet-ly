@@ -218,13 +218,13 @@ Response shape:
     pageViews:      number
     uniqueVisitors: number
     dailyCounts:    Array<{ date: string; views: number }>        // page views per day, ascending
-    recentEvents:   Array<Event>                                   // up to 20, newest first
-    countryCounts:  Record<string, number>                         // ISO country code → page view count
-    topPages:       Array<{ path: string;     count: number }>
-    topReferrers:   Array<{ referrer: string; count: number }>
-    topLocations:   Array<{ location: string; count: number }>    // country code, falls back to timezone
-    topDevices:     Array<{ device: string;   count: number }>
-    topBrowsers:    Array<{ browser: string;  count: number }>
+    recentEvents:   Array<Event>                                  // up to 20, newest first
+    countryCounts:  Record<string, number>                        // ISO country code → unique visitor count
+    topPages:       Array<{ path: string;     count: number }>    // count = page views
+    topReferrers:   Array<{ referrer: string; count: number }>    // count = visits (page views)
+    topLocations:   Array<{ location: string; count: number }>    // count = unique visitors; country code, falls back to timezone
+    topDevices:     Array<{ device: string;   count: number }>    // count = unique visitors
+    topBrowsers:    Array<{ browser: string;  count: number }>    // count = unique visitors
   }
 }
 ```

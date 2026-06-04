@@ -33388,9 +33388,9 @@ function buildSummary(events) {
     countryCounts: buildCountryCounts(pageViews),
     topPages: topN(pageViews, (e5) => e5.path || "(unknown)", "path"),
     topReferrers: topN(pageViews, (e5) => e5.referrer || "(direct)", "referrer"),
-    topLocations: topN(pageViews, (e5) => e5.country || e5.timezone || "(unknown)", "location"),
-    topDevices: topN(pageViews.filter((e5) => e5.device), (e5) => e5.device, "device"),
-    topBrowsers: topN(pageViews.filter((e5) => e5.browser), (e5) => e5.browser, "browser")
+    topLocations: topN(pageViews, (e5) => e5.country || e5.timezone || "(unknown)", "location", 10, "visitorId"),
+    topDevices: topN(pageViews.filter((e5) => e5.device), (e5) => e5.device, "device", 10, "visitorId"),
+    topBrowsers: topN(pageViews.filter((e5) => e5.browser), (e5) => e5.browser, "browser", 10, "visitorId")
   };
 }
 function buildDailyCounts(pageViews) {
@@ -33402,23 +33402,33 @@ function buildDailyCounts(pageViews) {
   return Object.entries(counts).sort((a5, b5) => a5[0].localeCompare(b5[0])).map(([date2, count]) => ({ date: date2, views: count }));
 }
 function buildCountryCounts(pageViews) {
-  const counts = {};
+  const visitors = {};
   pageViews.forEach((e5) => {
     const country = e5.country?.trim();
-    if (country) counts[country] = (counts[country] ?? 0) + 1;
+    if (country) {
+      if (!visitors[country]) visitors[country] = /* @__PURE__ */ new Set();
+      visitors[country].add(e5.visitorId || e5.sessionId);
+    }
   });
+  const counts = {};
+  for (const [country, set] of Object.entries(visitors)) counts[country] = set.size;
   return counts;
 }
 function buildRecentEvents(events) {
   return [...events].sort((a5, b5) => b5.timestamp.localeCompare(a5.timestamp)).slice(0, 20);
 }
-function topN(events, keyFn, label, n2 = 10) {
+function topN(events, keyFn, label, n2 = 10, uniqueBy = null) {
   const counts = {};
   events.forEach((e5) => {
     const k5 = keyFn(e5);
-    counts[k5] = (counts[k5] ?? 0) + 1;
+    if (uniqueBy) {
+      if (!counts[k5]) counts[k5] = /* @__PURE__ */ new Set();
+      counts[k5].add(e5[uniqueBy] || e5.sessionId);
+    } else {
+      counts[k5] = (counts[k5] ?? 0) + 1;
+    }
   });
-  return Object.entries(counts).sort((a5, b5) => b5[1] - a5[1]).slice(0, n2).map(([key, count]) => ({ [label]: key, count }));
+  return Object.entries(counts).map(([key, val]) => ({ [label]: key, count: uniqueBy ? val.size : val })).sort((a5, b5) => b5.count - a5.count).slice(0, n2);
 }
 async function queryDate({ appId, type, date: date2, client, TABLE_NAME }) {
   let params;

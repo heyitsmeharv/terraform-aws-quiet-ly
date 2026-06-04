@@ -192,9 +192,9 @@ function buildSummary(events) {
     countryCounts:  buildCountryCounts(pageViews),
     topPages:       topN(pageViews, (e) => e.path                            || "(unknown)", "path"),
     topReferrers:   topN(pageViews, (e) => e.referrer                        || "(direct)",  "referrer"),
-    topLocations:   topN(pageViews, (e) => e.country || e.timezone           || "(unknown)", "location"),
-    topDevices:     topN(pageViews.filter((e) => e.device),  (e) => e.device,  "device"),
-    topBrowsers:    topN(pageViews.filter((e) => e.browser), (e) => e.browser, "browser"),
+    topLocations:   topN(pageViews, (e) => e.country || e.timezone           || "(unknown)", "location", 10, "visitorId"),
+    topDevices:     topN(pageViews.filter((e) => e.device),  (e) => e.device,  "device",    10, "visitorId"),
+    topBrowsers:    topN(pageViews.filter((e) => e.browser), (e) => e.browser, "browser",   10, "visitorId"),
   };
 }
 
@@ -210,11 +210,16 @@ function buildDailyCounts(pageViews) {
 }
 
 function buildCountryCounts(pageViews) {
-  const counts = {};
+  const visitors = {};
   pageViews.forEach((e) => {
     const country = e.country?.trim();
-    if (country) counts[country] = (counts[country] ?? 0) + 1;
+    if (country) {
+      if (!visitors[country]) visitors[country] = new Set();
+      visitors[country].add(e.visitorId || e.sessionId);
+    }
   });
+  const counts = {};
+  for (const [country, set] of Object.entries(visitors)) counts[country] = set.size;
   return counts;
 }
 
@@ -224,16 +229,21 @@ function buildRecentEvents(events) {
     .slice(0, 20);
 }
 
-function topN(events, keyFn, label, n = 10) {
+function topN(events, keyFn, label, n = 10, uniqueBy = null) {
   const counts = {};
   events.forEach((e) => {
     const k = keyFn(e);
-    counts[k] = (counts[k] ?? 0) + 1;
+    if (uniqueBy) {
+      if (!counts[k]) counts[k] = new Set();
+      counts[k].add(e[uniqueBy] || e.sessionId);
+    } else {
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
   });
   return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, n)
-    .map(([key, count]) => ({ [label]: key, count }));
+    .map(([key, val]) => ({ [label]: key, count: uniqueBy ? val.size : val }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, n);
 }
 
 async function queryDate({ appId, type, date, client, TABLE_NAME }) {
