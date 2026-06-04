@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.12](https://github.com/heyitsmeharv/terraform-aws-quiet-ly/compare/v0.1.11...v0.1.12) (2026-06-04)
+
+
+### Bug Fixes
+
+* count unique visitors instead of page views in aggregation metrics ([2a242be](https://github.com/heyitsmeharv/terraform-aws-quiet-ly/commit/2a242be45d3c624e738ba4e2d019c0c1712cf6b1))
+
 ## [0.1.11](https://github.com/heyitsmeharv/quiet-ly-infra/compare/v0.1.10...v0.1.11) (2026-05-28)
 
 
